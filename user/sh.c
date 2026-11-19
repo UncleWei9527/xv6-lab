@@ -3,8 +3,11 @@
 #include "kernel/types.h"
 #include "user/user.h"
 #include "kernel/fcntl.h"
-
+#include"kernel/stat.h"
+#include"kernel/fs.h"
+#include"kernel/fcntl.h"
 // Parsed command representation
+// cmd 里面的type 
 #define EXEC  1
 #define REDIR 2
 #define PIPE  3
@@ -25,17 +28,17 @@ struct execcmd {
 
 struct redircmd {
   int type;
-  struct cmd *cmd;
-  char *file;
-  char *efile;
-  int mode;
-  int fd;
+  struct cmd *cmd;//子命令
+  char *file;//文件名开始地址
+  char *efile;//文件名结束地址
+  int mode;//文件打开模式
+  int fd;//文件fd替换子命令的fd
 };
 
 struct pipecmd {
   int type;
-  struct cmd *left;
-  struct cmd *right;
+  struct cmd *left;//左边命令
+  struct cmd *right;//右边命令
 };
 
 struct listcmd {
@@ -55,6 +58,8 @@ struct cmd *parsecmd(char *);
 void runcmd(struct cmd *) __attribute__((noreturn));
 
 // Execute cmd.  Never returns.
+//
+// 这段由儿子进程执行
 void
 runcmd(struct cmd *cmd)
 {
@@ -94,16 +99,20 @@ runcmd(struct cmd *cmd)
     lcmd = (struct listcmd *)cmd;
     if (fork1() == 0)
       runcmd(lcmd->left);
+      //等待左边命令执行完毕 再继续进行右边命令执行
     wait(0);
     runcmd(lcmd->right);
     break;
 
   case PIPE:
     pcmd = (struct pipecmd *)cmd;
+      //p[0]读 p[1]写 
     if (pipe(p) < 0)
       panic("pipe");
+      //
     if (fork1() == 0) {
       close(1);
+        //1->指向管道写端
       dup(p[1]);
       close(p[0]);
       close(p[1]);
@@ -111,13 +120,16 @@ runcmd(struct cmd *cmd)
     }
     if (fork1() == 0) {
       close(0);
+        //0 ->指向管道读段
       dup(p[0]);
       close(p[0]);
       close(p[1]);
       runcmd(pcmd->right);
     }
+      //关闭管道
     close(p[0]);
     close(p[1]);
+      //等待子进程完成 
     wait(0);
     wait(0);
     break;
@@ -126,22 +138,158 @@ runcmd(struct cmd *cmd)
     bcmd = (struct backcmd *)cmd;
     if (fork1() == 0)
       runcmd(bcmd->cmd);
+      //不等待子进程 完成
     break;
   }
   exit(0);
 }
-
+//对于tab 键 +
 int
 getcmd(char *buf, int nbuf)
 {
-  write(2, "$ ", 2);
+  struct stat st;
+  if(fstat(0,&st)==0&&st.type==T_DEVICE)
+    write(2, "$ ", 2);
+  
   memset(buf, 0, nbuf);
   gets(buf, nbuf);
+
   if (buf[0] == 0) // EOF
     return -1;
   return 0;
 }
+int
+my_strncmp(const char *p, const char *q, uint n)
+{
+  while (n > 0 && *p && *p == *q)
+    n--, p++, q++;
+  if (n == 0)
+    return 0;
+  return (uchar)*p - (uchar)*q;
+}   
+char *
+my_safestrcpy(char *s, const char *t, int n)
+{
+  char *os;
 
+  os = s;
+  if (n <= 0)
+    return os;
+  while (--n > 0 && (*s++ = *t++) != 0)
+    ;
+  *s = 0;
+  return os;
+}
+// user/sh.c
+ int do_tab_completion(char *buf, int cur_len, int max_len)
+{
+  //解析dir 和file
+ char *tokp=buf+cur_len-1;
+ char *p_path=0,*e_path=0;
+ char *p_file=0,*e_file=buf+cur_len-1;
+ if(tokp<buf)
+   return cur_len;
+ int first_meet_slash=1;
+ while(tokp>=buf)
+ {
+   if(*tokp==' ')
+     break;
+   if(*tokp=='/'&&first_meet_slash)
+   { 
+     first_meet_slash=0;
+     p_file=tokp+1,e_path=tokp;
+
+   }
+   tokp--;
+ }
+ if(!first_meet_slash)
+ p_path=tokp+1;
+ else p_file=tokp+1;
+ #define BUF_SIZE 128
+ char path[BUF_SIZE]={0},file[BUF_SIZE]={0};
+ if(p_path)
+ memmove(path,p_path,e_path-p_path+1);
+ else path[0]='.',path[1]=0;
+ if(p_file)
+ memmove(file,p_file,e_file-p_file+1);
+ 
+  // 2. 打开当前目录
+  int fd = open(path, O_RDONLY);
+  if(fd < 0) return cur_len;
+  int file_len=strlen(file);
+  struct dirent de;
+  char matched_name[DIRSIZ + 1];
+  int match_count = 0;
+
+  while(read(fd, &de, sizeof(de)) == sizeof(de)){
+    if(de.inum == 0)
+      continue;
+    if(my_strncmp(file, de.name, file_len) == 0){
+      match_count++;
+      my_safestrcpy(matched_name, de.name, sizeof(matched_name));
+    }
+  }
+  close(fd);
+
+  // 3. 唯一匹配：补全剩余字符并回显
+  if(match_count == 1){
+    char *suffix = matched_name + file_len;
+    int suffix_len = strlen(suffix);
+
+    if(cur_len + suffix_len < max_len - 1){
+      memmove(buf + cur_len, suffix, suffix_len);
+      cur_len += suffix_len;
+      buf[cur_len] = '\0';
+      // 回显补全出来的这部分字符到终端
+      write(1, suffix, suffix_len);
+    }
+  }
+  
+  return cur_len;
+ }
+int
+getcmd_interactive(char *buf, int nbuf)
+{
+  write(2, "$ ", 2);
+  memset(buf, 0, nbuf);
+  
+  int i = 0;
+  char c;
+  while(i < nbuf - 1){
+    if(read(0, &c, 1) <= 0)
+      return -1; // EOF
+
+    if(c == '\t'){
+      // 触发 Tab 补全处理
+      i = do_tab_completion(buf, i, nbuf);
+      continue;
+    }
+    //退格键盘
+    if(c=='\x7f'||c=='\b')
+    {
+      if(i>0)
+      { 
+        buf[--i]=0;
+        write(2,"\b \b",3);
+      }
+      continue;
+    }
+    // 遇到换行，正常结束命令输入
+    if(c == '\n' || c == '\r'){
+      write(2,"\n",1);
+      buf[i++]='\n';
+      break;
+    
+    }
+    //正常字符 正常输出
+    if(c){
+      buf[i++]=c;
+      write(2,&c,1);
+    }
+  }
+  buf[i] = '\0';
+  return 0;
+}
 int
 main(void)
 {
@@ -157,21 +305,41 @@ main(void)
   }
 
   // Read and run input commands.
-  while (getcmd(buf, sizeof(buf)) >= 0) {
+  while (getcmd_interactive(buf, sizeof(buf)) >= 0) {
     char *cmd = buf;
     while (*cmd == ' ' || *cmd == '\t')
       cmd++;
     if (*cmd == '\n') // is a blank command
       continue;
+    //对于cd 特别处理
     if (cmd[0] == 'c' && cmd[1] == 'd' && cmd[2] == ' ') {
       // Chdir must be called by the parent, not the child.
       cmd[strlen(cmd) - 1] = 0; // chop \n
       if (chdir(cmd + 3) < 0)
         fprintf(2, "cannot cd %s\n", cmd + 3);
-    } else {
-      if (fork1() == 0)
-        runcmd(parsecmd(cmd));
-      wait(0);
+    } 
+    else if(cmd[0]=='w'&&cmd[1]=='a'&&cmd[2]=='i'&&cmd[3]=='t'&&(cmd[4]=='\n'||cmd[4]==' '))
+    {
+      while(wait(0)!=-1);
+    }
+    else {
+      //开辟子进程执行代码
+      struct cmd*c=parsecmd(cmd);
+      if(c->type==BACK)
+      {
+        if (fork1() == 0)
+          runcmd(((struct backcmd*)c)->cmd);
+      }
+      else {
+        int pid=fork1();
+        if(pid==0)
+          runcmd(c);
+        else {
+          int wpid;
+           while ((wpid = wait(0)) != pid && wpid != -1);
+        }
+        
+      }
     }
   }
   exit(0);
@@ -183,7 +351,7 @@ panic(char *s)
   fprintf(2, "%s\n", s);
   exit(1);
 }
-
+//带检查的fork
 int
 fork1(void)
 {
@@ -267,7 +435,7 @@ backcmd(struct cmd *subcmd)
 
 char whitespace[] = " \t\r\n\v";
 char symbols[] = "<|>&;()";
-
+//指向当前扫描位置 字符串末尾位置 q和eq记录了词的开头结束位置
 int
 gettoken(char **ps, char *es, char **q, char **eq)
 {
@@ -275,6 +443,7 @@ gettoken(char **ps, char *es, char **q, char **eq)
   int ret;
 
   s = *ps;
+  //跳过空白符号
   while (s < es && strchr(whitespace, *s))
     s++;
   if (q)
@@ -299,6 +468,7 @@ gettoken(char **ps, char *es, char **q, char **eq)
     }
     break;
   default:
+    //获取一个完整的单词
     ret = 'a';
     while (s < es && !strchr(whitespace, *s) && !strchr(symbols, *s))
       s++;
@@ -312,13 +482,14 @@ gettoken(char **ps, char *es, char **q, char **eq)
   *ps = s;
   return ret;
 }
-
+//判断下一个是否是toks里面的一个
 int
 peek(char **ps, char *es, char *toks)
 {
   char *s;
 
   s = *ps;
+  //跳过空白符号 
   while (s < es && strchr(whitespace, *s))
     s++;
   *ps = s;
@@ -353,17 +524,20 @@ parseline(char **ps, char *es)
   struct cmd *cmd;
 
   cmd = parsepipe(ps, es);
+  
   while (peek(ps, es, "&")) {
     gettoken(ps, es, 0, 0);
+    // cmd & 
     cmd = backcmd(cmd);
-  }
+  } 
+  //list cmd : cmd1;cmd2;
   if (peek(ps, es, ";")) {
     gettoken(ps, es, 0, 0);
     cmd = listcmd(cmd, parseline(ps, es));
   }
   return cmd;
 }
-
+// cmd1 | cmd2 
 struct cmd *
 parsepipe(char **ps, char *es)
 {
@@ -376,7 +550,7 @@ parsepipe(char **ps, char *es)
   }
   return cmd;
 }
-
+//cmd  (>|>>|<  cmd)+ 
 struct cmd *
 parseredirs(struct cmd *cmd, char **ps, char *es)
 {
@@ -389,19 +563,21 @@ parseredirs(struct cmd *cmd, char **ps, char *es)
       panic("missing file for redirection");
     switch (tok) {
     case '<':
+        //文件作为输入 只读 
       cmd = redircmd(cmd, q, eq, O_RDONLY, 0);
       break;
     case '>':
+        //文件作为全覆盖输出 ,需要清理原来的文件 
       cmd = redircmd(cmd, q, eq, O_WRONLY | O_CREATE | O_TRUNC, 1);
       break;
-    case '+': // >>
+    case '+': //>>  不清空输出
       cmd = redircmd(cmd, q, eq, O_WRONLY | O_CREATE, 1);
       break;
     }
   }
   return cmd;
 }
-
+// (cmd )
 struct cmd *
 parseblock(char **ps, char *es)
 {
@@ -452,6 +628,7 @@ parseexec(char **ps, char *es)
 }
 
 // NUL-terminate all the counted strings.
+// 把命令的输入参数设置为'\0'结尾
 struct cmd *
 nulterminate(struct cmd *cmd)
 {

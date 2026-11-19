@@ -656,6 +656,7 @@ either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
 // Copy from either a user address, or kernel address,
 // depending on usr_src.
 // Returns 0 on success, -1 on error.
+// 安全拷贝内存，会判断从内核里面来还是用户来
 int
 either_copyin(void *dst, int user_src, uint64 src, uint64 len)
 {
