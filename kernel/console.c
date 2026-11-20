@@ -53,7 +53,7 @@ struct {
   uint r; // Read index
   uint w; // Write index
   uint e; // Edit index
-  // r~w 已经定稿  w~e 正在打的字还没确定 
+  // r~w 已经定稿  w~e 正在打的字还没确定
 } cons;
 
 //
@@ -144,35 +144,33 @@ consoleread(int user_dst, uint64 dst, int n)
 // uartintr() calls this for each input character.
 // do erase/kill processing, append to cons.buf,
 // wake up consoleread() if a whole line has arrived.
-//tab 补全 
+//tab 补全
 //1 以单词为界限
-int console_raw_mode=1;
+int console_raw_mode = 1;
 void
 consoleintr(int c)
 {
   acquire(&cons.lock);
-  if(console_raw_mode)
-  {
-    if(c==C('P'))
+  if (console_raw_mode) {
+    if (c == C('P'))
       procdump();
-    else if(c&&cons.e-cons.r<INPUT_BUF_SIZE)
-    {
-      cons.buf[cons.e++%INPUT_BUF_SIZE]=c;
-      cons.w=cons.e;
+    else if (c && cons.e - cons.r < INPUT_BUF_SIZE) {
+      cons.buf[cons.e++ % INPUT_BUF_SIZE] = c;
+      cons.w = cons.e;
       wakeup(&cons.r);
     }
     release(&cons.lock);
-    return ;
+    return;
   }
   switch (c) {
-  case '\t':  // 捕获 Tab 键
-  if(c != 0 && cons.e - cons.r < INPUT_BUF_SIZE){
-    // 不调用 consputc(c)，避免在屏幕上打印无意义的制表符或乱码
-    cons.buf[cons.e++ % INPUT_BUF_SIZE] = c;
-    cons.w = cons.e;        // 立即提交当前输入
-    wakeup(&cons.r);        // 唤醒处于 read 阻塞的 shell
-  }
-  break;
+  case '\t': // 捕获 Tab 键
+    if (c != 0 && cons.e - cons.r < INPUT_BUF_SIZE) {
+      // 不调用 consputc(c)，避免在屏幕上打印无意义的制表符或乱码
+      cons.buf[cons.e++ % INPUT_BUF_SIZE] = c;
+      cons.w = cons.e; // 立即提交当前输入
+      wakeup(&cons.r); // 唤醒处于 read 阻塞的 shell
+    }
+    break;
   case C('P'): // Print process list.
     procdump();
     break;
@@ -191,12 +189,12 @@ consoleintr(int c)
     }
     break;
   default:
-      //如果输入长度太长了，会进行替换字符为还行
+    //如果输入长度太长了，会进行替换字符为还行
     if (c != 0 && cons.e - cons.r < INPUT_BUF_SIZE) {
       c = (c == '\r') ? '\n' : c;
 
       // echo back to the user.
-     
+
       consputc(c);
 
       // store for consumption by consoleread().
@@ -206,7 +204,7 @@ consoleintr(int c)
         // wake up consoleread() if a whole line (or end-of-file)
         // has arrived.
         cons.w = cons.e;
-          wakeup(&cons.r);
+        wakeup(&cons.r);
       }
     }
     break;

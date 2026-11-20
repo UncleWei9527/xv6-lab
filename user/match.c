@@ -43,19 +43,18 @@ matchstar(int c, char *re, char *text)
   } while (*text != '\0' && (*text++ == c || c == '.'));
   return 0;
 }
-int main(int argc,char*argv[])
+int
+main(int argc, char *argv[])
 {
-  if(argc!=3)
-  {
-    fprintf(2,"Usage:match <pattern> <text>\n");
+  if (argc != 3) {
+    fprintf(2, "Usage:match <pattern> <text>\n");
     exit(-1);
   }
 
-  if(match(argv[1],argv[2]))
-  {
+  if (match(argv[1], argv[2])) {
     printf("match:successful\n");
 
-  }
-  else printf("match:failed\n");
+  } else
+    printf("match:failed\n");
   return 0;
 }

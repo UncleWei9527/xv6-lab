@@ -2,79 +2,75 @@
 #include "user/user.h"
 #include "kernel/fcntl.h"
 
-void memdump(char *fmt, char *data, int len)
+void
+memdump(char *fmt, char *data, int len)
 {
   //i: 四字节十进制数字
   //S: 把剩余数据当作个完整c字符串
   //s: 八字节当做指针，打印这个指针的字符串
-  int i=0;
-  
-  while(*fmt)
-  {
-    char*ptr=data+i;
-    switch(*fmt)
-    {
-      case 'i':
-        {
-          //判断是否越界 
-          if(len-i<4)goto Error;
-          i+=4;
-          int num=*(int*)ptr;
-          printf("%d\n",num);
-          break;
-        }
-      case 'p':
-        {
-          if(len-i<8)goto Error;
-          i+=8;
-          unsigned long long num=*((unsigned long long *)ptr);
-          printf("%llx\n",num);
-          break;
-        }
-      case 'h':
-        {
-          if(len-i<2)goto Error;
-          i+=2;
-          unsigned short num=*(unsigned short*)ptr;
-          printf("%u\n",(unsigned int )num);
-          break;
-        }
-      case 'c':
-        {
-          if(len-i<1)goto Error;
-          i+=1;
-          char ch=*ptr;
-          printf("%c\n",ch);
-          break;
-        }
-      case 's':
-        {
-          if(len-i<8)goto Error;
-          i+=8;
-          char*p=(char*)(*(unsigned long long *)ptr);
-          printf("%s\n",p);
-          break;
-        }
-      case 'S':
-        {
-          printf("%s\n",ptr);
-          i=len;
-          break;
-        }
-      default:
-        fprintf(2,"memdump: unknown format:%c\n",*fmt);
-        return ;
-        
-      
+  int i = 0;
+
+  while (*fmt) {
+    char *ptr = data + i;
+    switch (*fmt) {
+    case 'i': {
+      //判断是否越界
+      if (len - i < 4)
+        goto Error;
+      i += 4;
+      int num = *(int *)ptr;
+      printf("%d\n", num);
+      break;
     }
- 
+    case 'p': {
+      if (len - i < 8)
+        goto Error;
+      i += 8;
+      unsigned long long num = *((unsigned long long *)ptr);
+      printf("%llx\n", num);
+      break;
+    }
+    case 'h': {
+      if (len - i < 2)
+        goto Error;
+      i += 2;
+      unsigned short num = *(unsigned short *)ptr;
+      printf("%u\n", (unsigned int)num);
+      break;
+    }
+    case 'c': {
+      if (len - i < 1)
+        goto Error;
+      i += 1;
+      char ch = *ptr;
+      printf("%c\n", ch);
+      break;
+    }
+    case 's': {
+      if (len - i < 8)
+        goto Error;
+      i += 8;
+      char *p = (char *)(*(unsigned long long *)ptr);
+      printf("%s\n", p);
+      break;
+    }
+    case 'S': {
+      printf("%s\n", ptr);
+      i = len;
+      break;
+    }
+    default:
+      fprintf(2, "memdump: unknown format:%c\n", *fmt);
+      return;
+    }
+
     fmt++;
     continue;
   Error:
-    fprintf(2,"memdump: not enough data for \'%c\'",*fmt);
+    fprintf(2, "memdump: not enough data for \'%c\'", *fmt);
     exit(-1);
   }
-  return ;
+  return;
 }
 
 int
@@ -129,5 +125,3 @@ main(int argc, char *argv[])
   }
   exit(0);
 }
-
-

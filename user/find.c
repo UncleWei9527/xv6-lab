@@ -1,61 +1,59 @@
- #include "kernel/types.h"
+#include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
 #include "kernel/fs.h"
 #include "kernel/fcntl.h"
 
- #include"kernel/param.h"
+#include "kernel/param.h"
 
 int match(char *, char *);
- const char *get_fmtname(const char*path)
- {
-   const char*p = path + strlen(path);
+const char *
+get_fmtname(const char *path)
+{
+  const char *p = path + strlen(path);
 
-   for (; p > path && *(p-1) != '/'; p--)
-   {}
-    if(*p=='/')
+  for (; p > path && *(p - 1) != '/'; p--) {
+  }
+  if (*p == '/')
     p++;
-    return p;
-    
- }
- int flag;
- int file_name_index;
- const char*args[MAXARG];
- void init(int argc,char*argv[])
- {
-    for(file_name_index=0;file_name_index<argc-4;file_name_index++)
-   {
-         args[file_name_index]=argv[file_name_index+4] ;     
-   }
- }
- void exec_cmd(const char*path)
- {
-     int pid=fork();
-     if(pid<0)
-     {
-       fprintf(2,"find:fork failed\n");
-       exit(-1);
-     }
-     else if(pid==0)
-     {
-       //child process 
-       args[file_name_index]=path;
-       exec(args[0],(char**)args) ;
-       fprintf(2,"find:exec %s failed\n",args[0]);
-     }
-     else{
-       wait(0);
-     } 
- }
-void find(const char*current_path,const char*file_name)
- {
+  return p;
+}
+int flag;
+int file_name_index;
+const char *args[MAXARG];
+void
+init(int argc, char *argv[])
+{
+  for (file_name_index = 0; file_name_index < argc - 4; file_name_index++) {
+    args[file_name_index] = argv[file_name_index + 4];
+  }
+}
+void
+exec_cmd(const char *path)
+{
+  int pid = fork();
+  if (pid < 0) {
+    fprintf(2, "find:fork failed\n");
+    exit(-1);
+  } else if (pid == 0) {
+    //child process
+    args[file_name_index] = path;
+    exec(args[0], (char **)args);
+    fprintf(2, "find:exec %s failed\n", args[0]);
+  } else {
+    wait(0);
+  }
+}
+void
+find(const char *current_path, const char *file_name)
+{
   char buf[512], *p;
   int fd;
   struct dirent de;
   struct stat st;
 
-  if ((fd = open(current_path ,O_RDONLY)) < 0) {
-    fprintf(2, "find: cannot open %s\n",current_path);
+  if ((fd = open(current_path, O_RDONLY)) < 0) {
+    fprintf(2, "find: cannot open %s\n", current_path);
     return;
   }
 
@@ -68,24 +66,24 @@ void find(const char*current_path,const char*file_name)
   switch (st.type) {
   case T_DEVICE:
   case T_FILE:
-       // printf("cmp %s %s\n",get_fmtname(current_path),file_name);
+    // printf("cmp %s %s\n",get_fmtname(current_path),file_name);
     // if(!strcmp(get_fmtname(current_path),file_name))
-    if(match((char*)file_name,(char*)get_fmtname(current_path)))
-       {if(flag)
-           exec_cmd(current_path);
-        else 
-         printf("%s\n",current_path);
-       }
+    if (match((char *)file_name, (char *)get_fmtname(current_path))) {
+      if (flag)
+        exec_cmd(current_path);
+      else
+        printf("%s\n", current_path);
+    }
     break;
 
-  case T_DIR:         
+  case T_DIR:
     // if(!strcmp(get_fmtname(current_path),file_name))
-    if(match((char*)file_name,(char*)get_fmtname(current_path)))
-        {if(flag)
-           exec_cmd(current_path);
-        else 
-         printf("%s\n",current_path);
-       } 
+    if (match((char *)file_name, (char *)get_fmtname(current_path))) {
+      if (flag)
+        exec_cmd(current_path);
+      else
+        printf("%s\n", current_path);
+    }
     if (strlen(current_path) + 1 + DIRSIZ + 1 > sizeof buf) {
       printf("find : path too long\n");
       break;
@@ -96,9 +94,8 @@ void find(const char*current_path,const char*file_name)
     while (read(fd, &de, sizeof(de)) == sizeof(de)) {
       if (de.inum == 0)
         continue;
-      if(!strcmp(de.name,".")||!strcmp(de.name,".."))
-      {
-          continue;
+      if (!strcmp(de.name, ".") || !strcmp(de.name, "..")) {
+        continue;
       }
       // printf("%s\n",de.name);
       //构造buf
@@ -108,40 +105,37 @@ void find(const char*current_path,const char*file_name)
         printf("find: cannot stat %s\n", buf);
         continue;
       }
-      switch(st.type)
-      {
-        case T_FILE:
-        case T_DEVICE:
-           find(buf,file_name);
-           break;
-        case T_DIR:
-           find(buf,file_name);
-           break;
-
+      switch (st.type) {
+      case T_FILE:
+      case T_DEVICE:
+        find(buf, file_name);
+        break;
+      case T_DIR:
+        find(buf, file_name);
+        break;
       }
       // printf("%s %d %d %d\n", fmtname(buf), st.type, st.ino, (int)st.size);
     }
     break;
   }
-  close(fd);          
- }
+  close(fd);
+}
 int
 main(int argc, char *argv[])
 {
 
-  if (argc <3) {
-    fprintf(2,"Usage:find <path> <file> [-exec <arguments>]\n");
-     exit(-1);
+  if (argc < 3) {
+    fprintf(2, "Usage:find <path> <file> [-exec <arguments>]\n");
+    exit(-1);
+  } else {
+    flag = argc > 3 ? 1 : 0;
   }
-   else {
-     flag=argc>3?1:0;
-   }
-   init(argc,argv);
-  find(argv[1],argv[2]) ;
-  
-   exit(0);
-} 
- int matchhere(char *, char *);
+  init(argc, argv);
+  find(argv[1], argv[2]);
+
+  exit(0);
+}
+int matchhere(char *, char *);
 int matchstar(int, char *, char *);
 
 int
