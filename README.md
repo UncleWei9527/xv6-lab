@@ -1,31 +1,10 @@
-# MIT 6.1810 (xv6-riscv 2026) 实验记录
+# MIT 6.1810 (xv6-riscv 2026) — Lab 1: Xv6 and Unix Utilities
 
-基于 **MIT 6.1810 (Operating System Engineering, 2026)** 的 `xv6-riscv` 操作系统实验实现与笔记，包含官方必做任务和部分扩展练习。
+本分支（`util`）记录 Lab 1 的实现与笔记。实验内容主要是熟悉 xv6 用户态程序开发与常用 Unix 系统调用（`pause`、`read`、`open`、`fstat`、`fork`、`exec`、`wait` 等），并在此基础上完成了几项 Shell 和内核控制台扩展。
 
-> **说明**：原仓库根目录下的 [`README`](./README) 会被 [`Makefile`](./Makefile) 打包进 `fs.img`，且 `grade-lab-util` 的 `sixfive README` 测试依赖其原始内容，因此保留原文件未改动，使用本 `README.md` 记录实验内容。
 
----
 
-## 实验进度总览
-
-| Lab | 分支 | 状态 | 核心主题 |
-| :--- | :--- | :---: | :--- |
-| **Lab 1: Utilities** | `util` | ✅ 已完成（含扩展） | 系统调用、文件描述符、内存布局、进程管理、Shell 与控制台驱动 |
-| Lab 2: System calls | `syscall` | ⬜ 计划中 | 系统调用机制、内核/用户态数据传递 |
-| Lab 3: Page tables | `pgtbl` | ⬜ 计划中 | Sv39 三级页表、虚拟内存隔离 |
-| Lab 4: Traps | `traps` | ⬜ 计划中 | RISC-V 陷入机制、栈帧与中断处理 |
-| Lab 5: Copy-on-Write | `cow` | ⬜ 计划中 | 缺页异常、写时复制与物理页引用计数 |
-| Lab 6: Multithreading / Locks | `lock` | ⬜ 计划中 | 自旋锁、锁竞争优化与并发控制 |
-| Lab 7: File system | `fs` | ⬜ 计划中 | 大文件索引、符号链接、日志与文件系统 |
-| Lab 8: Networking | `net` | ⬜ 计划中 | E1000 网卡驱动、DMA 与协议栈收发 |
-
----
-
-## Lab 1: Xv6 and Unix Utilities
-
-本实验主要熟悉 xv6 的用户态程序开发与常用 Unix 系统调用（`pause`、`read`、`open`、`fstat`、`fork`、`exec`、`wait` 等），并在此基础上对 Shell 和内核控制台做了几项扩展。
-
-### 功能与代码索引
+## 功能与代码索引
 
 | 模块 | 类型 | 修改/新增文件 | 简要说明 |
 | :--- | :---: | :--- | :--- |

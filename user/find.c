@@ -11,7 +11,7 @@ int match(char *, char *);
  {
    const char*p = path + strlen(path);
 
-   for (; p >= path && *p != '/'; p--)
+   for (; p > path && *(p-1) != '/'; p--)
    {}
     if(*p=='/')
     p++;
@@ -31,7 +31,7 @@ int match(char *, char *);
  void exec_cmd(const char*path)
  {
      int pid=fork();
-     if(fork<0)
+     if(pid<0)
      {
        fprintf(2,"find:fork failed\n");
        exit(-1);
@@ -125,7 +125,6 @@ void find(const char*current_path,const char*file_name)
   }
   close(fd);          
  }
- #include"kernel/param.h"
 int
 main(int argc, char *argv[])
 {

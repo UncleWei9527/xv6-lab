@@ -305,7 +305,9 @@ main(void)
   }
 
   // Read and run input commands.
-  while (getcmd_interactive(buf, sizeof(buf)) >= 0) {
+  struct stat st;
+  int is_tty = (fstat(0, &st) == 0 && st.type == T_DEVICE);
+  while ((is_tty ? getcmd_interactive(buf, sizeof(buf)) : getcmd(buf, sizeof(buf))) >= 0) {
     char *cmd = buf;
     while (*cmd == ' ' || *cmd == '\t')
       cmd++;

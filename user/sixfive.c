@@ -4,10 +4,11 @@
 #include"kernel/fcntl.h"
 int is_seperate_character(char ch)
 {
-  return strchr("-\r\t\n./ ",ch)!=0;
+  return strchr("-\r\t\n./, ",ch)!=0;
 }
 enum {
-  Normal,
+  Seq,//刚遇到分隔符号
+  Invalid,//非法数字
   Number
 };
 void ouput_num(int num)
@@ -21,7 +22,7 @@ void sixfive(int fd)
 {
     char ch;
     int num=0;
-    int state=Normal;
+    int state=Seq;
     while(read(fd,&ch,1)>0)
     {
       if(is_seperate_character(ch))
@@ -29,24 +30,33 @@ void sixfive(int fd)
         switch(state)
         {
           case Number:
-          ouput_num(num);
-            state=Normal;
+            ouput_num(num);
+            state=Seq;
             break;
+          case Invalid:
+            state=Seq;
+            break;
+          
         }
       }
-      else 
+      else if(ch>='0'&&ch<='9') 
       {
         switch(state)
         {
+          case Seq:
+            state=Number;
+            num=ch-'0';
+            break;
           case Number:
             num=num*10+ch-'0';
             break;
-          case Normal:
-            num=ch-'0';
-            state=Number;
+          case Invalid:
             break;
         }
       }
+      else {
+      state=Invalid;    
+    }
     }
     if(state==Number)
       ouput_num(num);

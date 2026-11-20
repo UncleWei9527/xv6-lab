@@ -6,7 +6,7 @@ int
 main(int argc, char *argv[])
 {
   if (argc <= 1) {
-    fprintf(2,"slepp argument need more than 2 arguments\n");
+    fprintf(2,"sleep: argument need more than 2 arguments\n");
     exit(-1);
 
   }
