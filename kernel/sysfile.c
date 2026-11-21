@@ -393,7 +393,22 @@ sys_open(void)
 
   return fd;
 }
-
+uint64 sys_interpose(void)
+{
+  int mask;
+  char path[MAXPATH];
+  struct proc*p=myproc();
+  argint(0,&mask);
+  argstr(1,path,MAXPATH);
+  if((p->mask&mask)!=p->mask)
+  {
+    return -1;//允许禁止范围更大，但不允许更小
+  }
+  p->mask=mask;
+  strncpy(p->matchPath, path, MAXPATH);
+  
+  return 0; 
+}
 uint64
 sys_mkdir(void)
 {

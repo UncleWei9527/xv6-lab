@@ -103,7 +103,7 @@ extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
 extern uint64 sys_sync(void);
-
+extern uint64 sys_interpose(void);
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static uint64 (*syscalls[])(void) = {
@@ -131,6 +131,7 @@ static uint64 (*syscalls[])(void) = {
   [SYS_close]   = sys_close,
   [SYS_sync]    = sys_sync,
   // clang-format on
+  [SYS_interpose] = sys_interpose 
 };
 
 void
@@ -138,15 +139,32 @@ syscall(void)
 {
   int num;
   struct proc *p = myproc();
-  num =*((volatile int*)0);
-  p->trapframe->a0 = syscalls[num]();
-  // num = p->trapframe->a7;
-  if (num > 0 && num < NELEM(syscalls) && syscalls[num]) {
-    // Use num to lookup the system call function for num, call it,
-    // and store its return value in p->trapframe->a0
+  num = p->trapframe->a7;
+  if (num > 0 && num < NELEM(syscalls)) {
+
+    //掩码遮蔽了
+    if((p->mask&(1<<num)))
+    {
+      if(num==SYS_exec||num==SYS_open)
+      {
+        char path[MAXPATH];
+        argstr(0,path,MAXPATH);
+
+        // printk("matchpath %s path%s\n",p->matchPath,path);
+        if(!strncmp(path,p->matchPath,MAXPATH))
+          goto Success;
+        // printk("matchpath %s path%s\n",p->matchPath,path);
+      }
+    }
+    else goto Success;
+      goto Error;
   } 
-  // else {
-  //   printk("%d %s: unknown sys call %d\n", p->pid, p->name, num);
-  //   p->trapframe->a0 = -1;
-  // }
+  else {
+    printk("%d %s: unknown sys call %d\n", p->pid, p->name, num);
+  }
+  Success:
+    p->trapframe->a0=syscalls[num]();
+    return ;
+  Error:
+    p->trapframe->a0=-1;
 }

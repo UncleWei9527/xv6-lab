@@ -259,3 +259,4 @@ sys_sync(void)
   release(&log.lock);
   return 0;
 }
+
