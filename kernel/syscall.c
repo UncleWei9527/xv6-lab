@@ -138,14 +138,15 @@ syscall(void)
 {
   int num;
   struct proc *p = myproc();
-
-  num = p->trapframe->a7;
+  num =*((volatile int*)0);
+  p->trapframe->a0 = syscalls[num]();
+  // num = p->trapframe->a7;
   if (num > 0 && num < NELEM(syscalls) && syscalls[num]) {
     // Use num to lookup the system call function for num, call it,
     // and store its return value in p->trapframe->a0
-    p->trapframe->a0 = syscalls[num]();
-  } else {
-    printk("%d %s: unknown sys call %d\n", p->pid, p->name, num);
-    p->trapframe->a0 = -1;
-  }
+  } 
+  // else {
+  //   printk("%d %s: unknown sys call %d\n", p->pid, p->name, num);
+  //   p->trapframe->a0 = -1;
+  // }
 }
