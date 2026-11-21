@@ -25,6 +25,7 @@ main(int argc, char *argv[])
     data += 32 + (unsigned int)(argv[1][0] & 0xff);
 
 #define MSG "Here it is: "
+  // MSG + data 
   strcpy(data, MSG);
   strcpy(data + strlen(MSG), argv[1]);
 
