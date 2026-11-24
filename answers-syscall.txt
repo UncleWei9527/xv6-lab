@@ -1,0 +1,13 @@
+1. usertrap call  syscall
+2. p->trapframe->a7=0xf 
+3. p->trapframe->a7  represent sys call number for exaple SYS_FORK
+4.  num =*((volatile int*)0);
+    80001d4c:	00002783          	lw	a5,0(zero) # 0 <
+    sepc responds to the invalid instruction address kerneltrap
+    num is from a5
+5. The reason of kernel crash because of visit 0 space .
+   0 space did not map virtual address  
+   scause 0xd 表示读缺页异常，和实际一致
+
+6. p->name is "init"
+   p->pid =0x1 
